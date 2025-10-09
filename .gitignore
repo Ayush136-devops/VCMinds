@@ -1,1 +1,24 @@
 .venv
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+VENV/
+
+# SQLite DB
+*.db
+
+# Environment variables
+.env
+
+# VS Code settings
+.vscode/
+
+# Mac, Windows system files
+.DS_Store
+Thumbs.db
