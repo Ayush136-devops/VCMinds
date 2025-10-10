@@ -16,6 +16,11 @@ function safeDisplay(value) {
 
 export default function Dashboard({ startups = [] }) {
   const [query, setQuery] = useState("");
+  const [minScore, setMinScore] = useState(1);
+  const [maxScore, setMaxScore] = useState(10);
+  const [riskKeyword, setRiskKeyword] = useState("");
+  const [marketSize, setMarketSize] = useState("all");
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [bookmarks, setBookmarks] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('vcBookmarks') || '[]');
@@ -31,12 +36,34 @@ export default function Dashboard({ startups = [] }) {
     localStorage.setItem('vcBookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  const filtered = query === '__BOOKMARKS__'
-    ? startups.filter(s => bookmarks.includes(s.id))
-    : startups.filter(s =>
-        (safeDisplay(s.analysis?.["Company Name"]) || "")
-          .toLowerCase().includes(query.toLowerCase())
-      );
+  // Advanced filtering logic
+  const filtered = startups.filter(s => {
+    const analysis = s.analysis || {};
+    const score = Number(analysis['Overall Score']) || 0;
+    
+    // Score range filter
+    if (score < minScore || score > maxScore) return false;
+    
+    // Company name search
+    if (query && !safeDisplay(analysis['Company Name']).toLowerCase().includes(query.toLowerCase())) return false;
+    
+    // Bookmarks filter
+    if (bookmarkedOnly && !bookmarks.includes(s.id)) return false;
+    
+    // Risk keyword filter
+    const riskText = safeDisplay(analysis['Key Risks/Red Flags']).toLowerCase();
+    if (riskKeyword && !riskText.includes(riskKeyword.toLowerCase())) return false;
+    
+    // Market size filter
+    const marketText = safeDisplay(analysis['Market Size']).toLowerCase();
+    if (marketSize !== 'all') {
+      if (marketSize === 'small' && !marketText.includes('million')) return false;
+      if (marketSize === 'medium' && !marketText.includes('billion')) return false;
+      if (marketSize === 'large' && !marketText.includes('trillion')) return false;
+    }
+    
+    return true;
+  });
 
   function handleCheckbox(id) {
     setCompareIds((ids) =>
@@ -61,6 +88,97 @@ export default function Dashboard({ startups = [] }) {
       background: '#fff',
       minHeight: '600px'
     }}>
+      {/* Advanced Filters */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: 16,
+        maxWidth: 1200,
+        margin: "0 auto 32px auto",
+        padding: "16px",
+        background: "#f8fafc",
+        border: "1px solid #e5e7eb",
+        borderRadius: 8
+      }}>
+        <div>
+          <label style={filterLabelStyle}>Company Search</label>
+          <input
+            type="text"
+            placeholder="Search by company name..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={filterInputStyle}
+          />
+        </div>
+        
+        <div>
+          <label style={filterLabelStyle}>Score Range</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={minScore}
+              onChange={e => setMinScore(Number(e.target.value))}
+              style={{ ...filterInputStyle, width: "60px" }}
+            />
+            <span>–</span>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={maxScore}
+              onChange={e => setMaxScore(Number(e.target.value))}
+              style={{ ...filterInputStyle, width: "60px" }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label style={filterLabelStyle}>Risk Keyword</label>
+          <input
+            type="text"
+            placeholder="Filter by risk..."
+            value={riskKeyword}
+            onChange={e => setRiskKeyword(e.target.value)}
+            style={filterInputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={filterLabelStyle}>Market Size</label>
+          <select
+            value={marketSize}
+            onChange={e => setMarketSize(e.target.value)}
+            style={filterInputStyle}
+          >
+            <option value="all">All Markets</option>
+            <option value="small">Small (&lt;$1B)</option>
+            <option value="medium">Medium ($1B-$10B)</option>
+            <option value="large">Large (&gt;$10B)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: 8, 
+            fontSize: 14, 
+            color: "#374151",
+            cursor: "pointer",
+            marginTop: 20
+          }}>
+            <input
+              type="checkbox"
+              checked={bookmarkedOnly}
+              onChange={e => setBookmarkedOnly(e.target.checked)}
+            />
+            Bookmarked Only
+          </label>
+        </div>
+      </div>
+
       {/* Analytics Overview */}
       <div style={{
         display: "grid",
@@ -82,7 +200,7 @@ export default function Dashboard({ startups = [] }) {
             fontWeight: 600, 
             color: "#111827" 
           }}>
-            Score Distribution
+            Score Distribution ({filtered.length} companies)
           </h3>
           <ScoreChart startups={filtered} />
         </div>
@@ -104,60 +222,9 @@ export default function Dashboard({ startups = [] }) {
         </div>
       </div>
 
-      {/* Controls */}
-      <div style={{ 
-        maxWidth: 1200, 
-        margin: "0 auto 24px auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        alignItems: "center"
-      }}>
-        {/* Bookmarks Filter */}
-        <div>
-          <label style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: 8, 
-            fontSize: 14, 
-            color: "#374151",
-            cursor: "pointer"
-          }}>
-            <input
-              type="checkbox"
-              checked={!!query && query === '__BOOKMARKS__'}
-              onChange={e => setQuery(e.target.checked ? '__BOOKMARKS__' : '')}
-              style={{ margin: 0 }}
-            />
-            Show bookmarked companies only
-          </label>
-        </div>
-
-        {/* Search */}
-        <div style={{ position: "relative", width: "100%", maxWidth: 400 }}>
-          <input
-            type="text"
-            value={query === '__BOOKMARKS__' ? '' : query}
-            disabled={query === '__BOOKMARKS__'}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search companies..."
-            style={{
-              width: "100%",
-              padding: '12px 16px',
-              fontSize: 15,
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
-              background: '#fff',
-              fontFamily: professionalFont,
-              outline: "none"
-            }}
-            onFocus={e => e.target.style.borderColor = "#3b82f6"}
-            onBlur={e => e.target.style.borderColor = "#d1d5db"}
-          />
-        </div>
-
-        {/* Compare Button */}
-        {compareIds.length >= 2 && (
+      {/* Compare Button */}
+      {compareIds.length >= 2 && (
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
           <button
             onClick={() => setShowCompare(true)}
             style={{
@@ -174,8 +241,8 @@ export default function Dashboard({ startups = [] }) {
           >
             Compare {compareIds.length} Companies
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Data Table */}
       <div style={{ 
@@ -439,6 +506,25 @@ function getScoreColor(score) {
   if (numScore >= 4) return "#d97706";
   return "#dc2626";
 }
+
+// Filter styles
+const filterLabelStyle = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 500,
+  color: "#374151",
+  marginBottom: 4
+};
+
+const filterInputStyle = {
+  width: "100%",
+  padding: "8px 12px",
+  fontSize: 14,
+  border: "1px solid #d1d5db",
+  borderRadius: 4,
+  outline: "none",
+  fontFamily: professionalFont
+};
 
 const headerStyle = {
   textAlign: "left",
