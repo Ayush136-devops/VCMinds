@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import axios from 'axios';
 
+const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 const UploadDeck = ({ onUploadSuccess }) => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const handleUpload = async () => {
     if (!file) {
@@ -36,41 +39,158 @@ const UploadDeck = ({ onUploadSuccess }) => {
     }
   };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && (droppedFile.type === 'application/pdf' || droppedFile.name.endsWith('.pptx'))) {
+      setFile(droppedFile);
+      setError(null);
+    } else {
+      setError('Please upload a PDF or PPTX file');
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setError(null);
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Upload Pitch Deck</h2>
-      <div style={styles.uploadBox}>
-        <input
-          type="file"
-          accept=".pdf,.pptx"
-          onChange={(e) => setFile(e.target.files[0])}
-          style={styles.fileInput}
-        />
-        {file && <p style={styles.fileName}>Selected: {file.name}</p>}
-        <button
-          onClick={handleUpload}
-          disabled={loading || !file}
-          style={{
-            ...styles.button,
-            opacity: loading || !file ? 0.5 : 1,
-          }}
-        >
-          {loading ? '⏳ Uploading...' : '📤 Upload'}
-        </button>
+      <div style={styles.header}>
+        <h2 style={styles.title}>Upload Pitch Deck</h2>
+        <p style={styles.subtitle}>Upload your startup's pitch deck for AI analysis</p>
       </div>
 
+      <div 
+        style={{
+          ...styles.uploadArea,
+          ...(dragOver ? styles.uploadAreaDragOver : {}),
+          ...(file ? styles.uploadAreaWithFile : {})
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {!file ? (
+          <div style={styles.uploadPrompt}>
+            <div style={styles.uploadIcon}>📄</div>
+            <h3 style={styles.uploadTitle}>Drop your pitch deck here</h3>
+            <p style={styles.uploadDescription}>
+              Or click to browse files
+            </p>
+            <p style={styles.fileTypes}>
+              Supports PDF and PPTX files
+            </p>
+            <input
+              type="file"
+              accept=".pdf,.pptx"
+              onChange={handleFileSelect}
+              style={styles.hiddenInput}
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" style={styles.browseButton}>
+              Browse Files
+            </label>
+          </div>
+        ) : (
+          <div style={styles.filePreview}>
+            <div style={styles.fileIcon}>
+              {file.name.endsWith('.pdf') ? '📕' : '📊'}
+            </div>
+            <div style={styles.fileInfo}>
+              <h4 style={styles.fileName}>{file.name}</h4>
+              <p style={styles.fileSize}>{formatFileSize(file.size)}</p>
+              <p style={styles.fileType}>
+                {file.name.endsWith('.pdf') ? 'PDF Document' : 'PowerPoint Presentation'}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setFile(null);
+                setResult(null);
+                setError(null);
+              }}
+              style={styles.removeButton}
+              title="Remove file"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+
+      {file && !result && (
+        <div style={styles.actionSection}>
+          <button
+            onClick={handleUpload}
+            disabled={loading}
+            style={{
+              ...styles.uploadButton,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Uploading Document...' : 'Upload & Process'}
+          </button>
+        </div>
+      )}
+
       {error && (
-        <div style={styles.error}>
-          ❌ {error}
+        <div style={styles.errorCard}>
+          <div style={styles.errorIcon}>⚠️</div>
+          <div>
+            <h4 style={styles.errorTitle}>Upload Error</h4>
+            <p style={styles.errorMessage}>{error}</p>
+          </div>
         </div>
       )}
 
       {result && (
-        <div style={styles.success}>
-          <h3>✅ Upload Successful!</h3>
-          <p><strong>File:</strong> {result.file_name}</p>
-          <p><strong>Type:</strong> {result.doc_type}</p>
-          <p><strong>Document ID:</strong> {result.doc_id}</p>
+        <div style={styles.successCard}>
+          <div style={styles.successIcon}>✅</div>
+          <div style={styles.successContent}>
+            <h4 style={styles.successTitle}>Upload Successful</h4>
+            <div style={styles.resultDetails}>
+              <div style={styles.resultItem}>
+                <span style={styles.resultLabel}>File:</span>
+                <span style={styles.resultValue}>{result.file_name}</span>
+              </div>
+              <div style={styles.resultItem}>
+                <span style={styles.resultLabel}>Type:</span>
+                <span style={styles.resultValue}>{result.doc_type?.toUpperCase()}</span>
+              </div>
+              <div style={styles.resultItem}>
+                <span style={styles.resultLabel}>Document ID:</span>
+                <span style={styles.resultValue}>{result.doc_id}</span>
+              </div>
+            </div>
+            <p style={styles.nextStep}>
+              Document is ready for analysis. Click "Run Analysis" below to continue.
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -79,55 +199,221 @@ const UploadDeck = ({ onUploadSuccess }) => {
 
 const styles = {
   container: {
-    padding: '20px',
+    fontFamily: professionalFont,
     maxWidth: '600px',
-    margin: '0 auto',
+    margin: '0 auto'
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: '32px'
   },
   title: {
     fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
+    fontWeight: 600,
+    color: '#111827',
+    margin: '0 0 8px 0'
   },
-  uploadBox: {
-    border: '2px dashed #ccc',
+  subtitle: {
+    fontSize: '16px',
+    color: '#6b7280',
+    margin: 0
+  },
+  uploadArea: {
+    border: '2px dashed #d1d5db',
     borderRadius: '8px',
-    padding: '30px',
+    padding: '40px 24px',
     textAlign: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f9fafb',
+    transition: 'all 0.2s ease',
+    cursor: 'pointer',
+    marginBottom: '24px'
   },
-  fileInput: {
-    marginBottom: '15px',
+  uploadAreaDragOver: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+    transform: 'scale(1.02)'
+  },
+  uploadAreaWithFile: {
+    borderColor: '#10b981',
+    backgroundColor: '#f0fdf4',
+    cursor: 'default'
+  },
+  uploadPrompt: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
+  },
+  uploadIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+    opacity: 0.7
+  },
+  uploadTitle: {
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#111827',
+    margin: '0 0 8px 0'
+  },
+  uploadDescription: {
+    fontSize: '14px',
+    color: '#6b7280',
+    margin: '0 0 16px 0'
+  },
+  fileTypes: {
+    fontSize: '12px',
+    color: '#9ca3af',
+    margin: '0 0 20px 0'
+  },
+  hiddenInput: {
+    display: 'none'
+  },
+  browseButton: {
+    padding: '10px 20px',
+    fontSize: '14px',
+    fontWeight: 500,
+    color: '#3b82f6',
+    backgroundColor: '#fff',
+    border: '1px solid #3b82f6',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease'
+  },
+  filePreview: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '16px',
+    backgroundColor: '#fff',
+    borderRadius: '6px',
+    position: 'relative'
+  },
+  fileIcon: {
+    fontSize: '32px',
+    minWidth: '40px'
+  },
+  fileInfo: {
+    flex: 1,
+    textAlign: 'left'
   },
   fileName: {
-    margin: '10px 0',
-    color: '#555',
-  },
-  button: {
-    padding: '12px 24px',
     fontSize: '16px',
-    backgroundColor: '#4CAF50',
+    fontWeight: 600,
+    color: '#111827',
+    margin: '0 0 4px 0',
+    wordBreak: 'break-word'
+  },
+  fileSize: {
+    fontSize: '14px',
+    color: '#6b7280',
+    margin: '0 0 2px 0'
+  },
+  fileType: {
+    fontSize: '12px',
+    color: '#9ca3af',
+    margin: 0
+  },
+  removeButton: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    border: 'none',
+    backgroundColor: '#ef4444',
+    color: '#fff',
+    cursor: 'pointer',
+    fontSize: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  actionSection: {
+    textAlign: 'center',
+    marginBottom: '24px'
+  },
+  uploadButton: {
+    padding: '12px 32px',
+    fontSize: '16px',
+    fontWeight: 600,
+    backgroundColor: '#10b981',
     color: 'white',
     border: 'none',
-    borderRadius: '5px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontWeight: 'bold',
+    fontFamily: professionalFont,
+    transition: 'background-color 0.2s'
   },
-  error: {
-    marginTop: '20px',
-    padding: '15px',
-    backgroundColor: '#ffebee',
-    color: '#c62828',
-    borderRadius: '5px',
-    border: '1px solid #ef5350',
+  errorCard: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: '6px',
+    padding: '16px'
   },
-  success: {
-    marginTop: '20px',
-    padding: '15px',
-    backgroundColor: '#e8f5e9',
-    color: '#2e7d32',
-    borderRadius: '5px',
-    border: '1px solid #66bb6a',
+  errorIcon: {
+    fontSize: '20px',
+    marginTop: '2px'
   },
+  errorTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#dc2626',
+    margin: '0 0 4px 0'
+  },
+  errorMessage: {
+    fontSize: '14px',
+    color: '#7f1d1d',
+    margin: 0
+  },
+  successCard: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    background: '#f0fdf4',
+    border: '1px solid #bbf7d0',
+    borderRadius: '6px',
+    padding: '16px'
+  },
+  successIcon: {
+    fontSize: '20px',
+    marginTop: '2px'
+  },
+  successContent: {
+    flex: 1
+  },
+  successTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#059669',
+    margin: '0 0 12px 0'
+  },
+  resultDetails: {
+    marginBottom: '12px'
+  },
+  resultItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '4px'
+  },
+  resultLabel: {
+    fontSize: '14px',
+    color: '#374151',
+    fontWeight: 500
+  },
+  resultValue: {
+    fontSize: '14px',
+    color: '#111827',
+    fontWeight: 400
+  },
+  nextStep: {
+    fontSize: '14px',
+    color: '#065f46',
+    margin: 0,
+    fontStyle: 'italic'
+  }
 };
 
 export default UploadDeck;

@@ -89,12 +89,16 @@ def analyze_document(doc_id: int, db: Session = Depends(get_db)):
     pitch_text = doc.text or ""
     
     prompt = f"""
-You are a venture capital analyst specializing in startup due diligence. 
-Analyze the following pitch deck carefully and extract key investment information. 
-Focus on clarity, accuracy, and investor-relevant insight. 
-Return ONLY a valid JSON object — no extra text, markdown, or explanations. 
-If any field is missing or unclear, return "Not provided". 
-Keep responses concise, factual, and investment-focused.
+You are a venture capital analyst specializing in startup due diligence.
+Analyze the following pitch deck carefully and extract key investment information.
+Focus on clarity, accuracy, and investor-relevant insight.
+Return ONLY a valid JSON object — no extra text, markdown, or explanations.
+
+If any field is missing or unclear, return "Not provided".
+
+*For 'Overall Score', give an integer from 1 (poor) to 10 (excellent) reflecting the investment quality of this startup based on the pitch deck. Always fill this with your AI evaluation — do NOT repeat the default.*
+
+The response should exactly follow this format:
 
 {{
   "Company Name": "",
@@ -107,7 +111,7 @@ Keep responses concise, factual, and investment-focused.
   "Funding Ask": "",
   "Key Risks/Red Flags": "",
   "1-Sentence Investment Summary": "",
-  "Overall Score": 5
+  "Overall Score": <AI-GENERATED SCORE from 1 to 10>
 }}
 
 Pitch deck text:

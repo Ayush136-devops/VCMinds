@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-// Defensive display util to avoid React errors for objects/arrays
+const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 function safeDisplay(value) {
   if (typeof value === "string") return value;
   if (typeof value === "number") return value;
@@ -34,181 +35,351 @@ const AnalysisView = ({ docId }) => {
   };
 
   const getScoreColor = (score) => {
-    // Use safeDisplay to ensure score is a number
     const nScore = Number(safeDisplay(score));
-    if (nScore >= 7) return '#4CAF50';
-    if (nScore >= 4) return '#FF9800';
-    return '#f44336';
+    if (nScore >= 7) return '#059669';
+    if (nScore >= 4) return '#d97706';
+    return '#dc2626';
   };
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>AI Analysis</h2>
+      <div style={styles.header}>
+        <h2 style={styles.title}>Investment Analysis</h2>
+        <p style={styles.subtitle}>AI-powered due diligence report</p>
+      </div>
 
       {!analysis && (
-        <button
-          onClick={handleAnalyze}
-          disabled={loading}
-          style={{
-            ...styles.analyzeButton,
-            opacity: loading ? 0.5 : 1,
-          }}
-        >
-          {loading ? '🔄 Analyzing...' : '🤖 Run AI Analysis'}
-        </button>
+        <div style={styles.actionSection}>
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+            style={{
+              ...styles.analyzeButton,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Analyzing Document...' : 'Run Analysis'}
+          </button>
+          <p style={styles.helpText}>
+            Click to generate comprehensive investment analysis using AI
+          </p>
+        </div>
       )}
 
       {error && (
-        <div style={styles.error}>
-          ❌ {safeDisplay(error)}
+        <div style={styles.errorCard}>
+          <h4 style={styles.errorTitle}>Analysis Error</h4>
+          <p style={styles.errorMessage}>{safeDisplay(error)}</p>
         </div>
       )}
 
       {analysis && (
-        <div style={styles.results}>
-          <h3 style={styles.sectionTitle}>📊 Analysis Results</h3>
-          <div style={styles.scoreBox}>
-            <h2 style={{ color: getScoreColor(analysis['Overall Score']) }}>
-              Score: {safeDisplay(analysis['Overall Score'])}/10
-            </h2>
+        <div style={styles.resultsContainer}>
+          {/* Score Section */}
+          <div style={styles.scoreSection}>
+            <div style={styles.scoreCard}>
+              <h3 style={styles.scoreLabel}>Investment Score</h3>
+              <div style={{
+                ...styles.scoreValue,
+                color: getScoreColor(analysis['Overall Score'])
+              }}>
+                {safeDisplay(analysis['Overall Score'])}/10
+              </div>
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <strong>🏢 Company Name:</strong>
-            <p>{safeDisplay(analysis['Company Name'])}</p>
+          {/* Company Overview */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Company Overview</h3>
+            <div style={styles.grid}>
+              <DataField 
+                label="Company Name" 
+                value={safeDisplay(analysis['Company Name'])} 
+              />
+              <DataField 
+                label="Founder(s)" 
+                value={safeDisplay(analysis['Founder(s)'])} 
+              />
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <strong>👥 Founder(s):</strong>
-            <p>{safeDisplay(analysis['Founder(s)'])}</p>
+          {/* Business Analysis */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Business Analysis</h3>
+            <div style={styles.fieldGroup}>
+              <DataField 
+                label="Problem Statement" 
+                value={safeDisplay(analysis['Problem Statement'])}
+                multiline 
+              />
+              <DataField 
+                label="Solution Overview" 
+                value={safeDisplay(analysis['Solution Overview'])}
+                multiline 
+              />
+              <DataField 
+                label="Business Model" 
+                value={safeDisplay(analysis['Business Model'])}
+                multiline 
+              />
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <strong>❓ Problem Statement:</strong>
-            <p>{safeDisplay(analysis['Problem Statement'])}</p>
+          {/* Market & Traction */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Market & Traction</h3>
+            <div style={styles.fieldGroup}>
+              <DataField 
+                label="Market Size" 
+                value={safeDisplay(analysis['Market Size'])}
+                multiline 
+              />
+              <DataField 
+                label="Traction" 
+                value={safeDisplay(analysis['Traction'])}
+                multiline 
+              />
+              <DataField 
+                label="Funding Ask" 
+                value={safeDisplay(analysis['Funding Ask'])} 
+              />
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <strong>💡 Solution Overview:</strong>
-            <p>{safeDisplay(analysis['Solution Overview'])}</p>
+          {/* Risk Assessment */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Risk Assessment</h3>
+            <div style={styles.riskCard}>
+              <h4 style={styles.riskTitle}>Key Risks & Red Flags</h4>
+              <p style={styles.riskContent}>
+                {safeDisplay(analysis['Key Risks/Red Flags'])}
+              </p>
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <strong>📈 Market Size:</strong>
-            <p>{safeDisplay(analysis['Market Size'])}</p>
+          {/* Investment Summary */}
+          <div style={styles.section}>
+            <div style={styles.summaryCard}>
+              <h3 style={styles.summaryTitle}>Investment Summary</h3>
+              <p style={styles.summaryContent}>
+                {safeDisplay(analysis['1-Sentence Investment Summary'])}
+              </p>
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <strong>💰 Business Model:</strong>
-            <p>{safeDisplay(analysis['Business Model'])}</p>
+          {/* Actions */}
+          <div style={styles.actionSection}>
+            <button 
+              onClick={handleAnalyze} 
+              style={styles.reanalyzeButton}
+              disabled={loading}
+            >
+              {loading ? 'Re-analyzing...' : 'Re-analyze Document'}
+            </button>
           </div>
-
-          <div style={styles.field}>
-            <strong>🚀 Traction:</strong>
-            <p>{safeDisplay(analysis['Traction'])}</p>
-          </div>
-
-          <div style={styles.field}>
-            <strong>💵 Funding Ask:</strong>
-            <p>{safeDisplay(analysis['Funding Ask'])}</p>
-          </div>
-
-          <div style={styles.redFlags}>
-            <strong>🚩 Key Risks/Red Flags:</strong>
-            <p>{safeDisplay(analysis['Key Risks/Red Flags'])}</p>
-          </div>
-
-          <div style={styles.summary}>
-            <strong>📝 Investment Summary:</strong>
-            <p>{safeDisplay(analysis['1-Sentence Investment Summary'])}</p>
-          </div>
-
-          <button onClick={handleAnalyze} style={styles.reanalyzeButton}>
-            🔄 Re-analyze
-          </button>
         </div>
       )}
     </div>
   );
 };
 
+function DataField({ label, value, multiline = false }) {
+  return (
+    <div style={styles.dataField}>
+      <label style={styles.fieldLabel}>{label}</label>
+      <div style={multiline ? styles.fieldValueMultiline : styles.fieldValue}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 const styles = {
   container: {
-    padding: '20px',
+    fontFamily: professionalFont,
     maxWidth: '800px',
     margin: '0 auto',
+    background: '#fff'
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: '32px',
+    paddingBottom: '24px',
+    borderBottom: '1px solid #e5e7eb'
   },
   title: {
     fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
+    fontWeight: 600,
+    color: '#111827',
+    margin: '0 0 8px 0'
+  },
+  subtitle: {
+    fontSize: '16px',
+    color: '#6b7280',
+    margin: 0
+  },
+  actionSection: {
+    textAlign: 'center',
+    margin: '32px 0'
   },
   analyzeButton: {
-    padding: '15px 30px',
-    fontSize: '18px',
-    backgroundColor: '#2196F3',
+    padding: '12px 32px',
+    fontSize: '16px',
+    fontWeight: 600,
+    backgroundColor: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontWeight: 'bold',
-    width: '100%',
+    fontFamily: professionalFont,
+    transition: 'background-color 0.2s'
   },
-  error: {
-    marginTop: '20px',
-    padding: '15px',
-    backgroundColor: '#ffebee',
-    color: '#c62828',
-    borderRadius: '5px',
-    border: '1px solid #ef5350',
+  helpText: {
+    fontSize: '14px',
+    color: '#6b7280',
+    margin: '12px 0 0 0'
   },
-  results: {
-    marginTop: '20px',
+  errorCard: {
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: '6px',
+    padding: '16px',
+    margin: '16px 0'
+  },
+  errorTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#dc2626',
+    margin: '0 0 8px 0'
+  },
+  errorMessage: {
+    fontSize: '14px',
+    color: '#7f1d1d',
+    margin: 0
+  },
+  resultsContainer: {
+    marginTop: '24px'
+  },
+  scoreSection: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '32px'
+  },
+  scoreCard: {
+    background: '#f8fafc',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '24px',
+    textAlign: 'center',
+    minWidth: '200px'
+  },
+  scoreLabel: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#374151',
+    margin: '0 0 8px 0'
+  },
+  scoreValue: {
+    fontSize: '32px',
+    fontWeight: 700,
+    margin: 0
+  },
+  section: {
+    marginBottom: '32px'
   },
   sectionTitle: {
-    fontSize: '20px',
-    marginBottom: '15px',
-    color: '#333',
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#111827',
+    margin: '0 0 16px 0',
+    paddingBottom: '8px',
+    borderBottom: '2px solid #e5e7eb'
   },
-  scoreBox: {
-    textAlign: 'center',
-    padding: '20px',
-    backgroundColor: '#f5f5f5',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    border: '2px solid #ddd',
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '16px'
   },
-  field: {
-    marginBottom: '15px',
-    padding: '15px',
-    backgroundColor: '#fafafa',
-    borderRadius: '5px',
-    borderLeft: '4px solid #2196F3',
+  fieldGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
   },
-  redFlags: {
-    marginBottom: '15px',
-    padding: '15px',
-    backgroundColor: '#fff3e0',
-    borderRadius: '5px',
-    borderLeft: '4px solid #f44336',
+  dataField: {
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    padding: '16px'
   },
-  summary: {
-    marginTop: '20px',
-    padding: '20px',
-    backgroundColor: '#e3f2fd',
-    borderRadius: '8px',
-    border: '2px solid #2196F3',
+  fieldLabel: {
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#374151',
+    display: 'block',
+    marginBottom: '8px'
+  },
+  fieldValue: {
+    fontSize: '14px',
+    color: '#111827',
+    lineHeight: 1.5
+  },
+  fieldValueMultiline: {
+    fontSize: '14px',
+    color: '#111827',
+    lineHeight: 1.6,
+    whiteSpace: 'pre-wrap'
+  },
+  riskCard: {
+    background: '#fef7f0',
+    border: '1px solid #fed7aa',
+    borderLeft: '4px solid #f59e0b',
+    borderRadius: '6px',
+    padding: '16px'
+  },
+  riskTitle: {
     fontSize: '16px',
+    fontWeight: 600,
+    color: '#92400e',
+    margin: '0 0 8px 0'
+  },
+  riskContent: {
+    fontSize: '14px',
+    color: '#451a03',
+    margin: 0,
+    lineHeight: 1.6
+  },
+  summaryCard: {
+    background: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderLeft: '4px solid #3b82f6',
+    borderRadius: '6px',
+    padding: '20px'
+  },
+  summaryTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#1e40af',
+    margin: '0 0 12px 0'
+  },
+  summaryContent: {
+    fontSize: '15px',
+    color: '#1e3a8a',
+    margin: 0,
+    lineHeight: 1.6,
+    fontStyle: 'italic'
   },
   reanalyzeButton: {
-    marginTop: '20px',
-    padding: '10px 20px',
-    backgroundColor: '#757575',
+    padding: '10px 24px',
+    fontSize: '14px',
+    fontWeight: 500,
+    backgroundColor: '#6b7280',
     color: 'white',
     border: 'none',
-    borderRadius: '5px',
+    borderRadius: '6px',
     cursor: 'pointer',
-  },
+    fontFamily: professionalFont
+  }
 };
 
 export default AnalysisView;

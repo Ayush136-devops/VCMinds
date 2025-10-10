@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ScoreChart, RiskPieChart } from './Charts';
 
-// Defensive display util to avoid React errors for objects/arrays
+const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 function safeDisplay(value) {
   if (typeof value === "string") return value;
   if (typeof value === "number") return value;
@@ -13,11 +14,8 @@ function safeDisplay(value) {
   return "Not provided";
 }
 
-export default function Dashboard() {
-  const [startups, setStartups] = useState([]);
-  const [selected, setSelected] = useState(null);
+export default function Dashboard({ startups = [] }) {
   const [query, setQuery] = useState("");
-  // Bookmarks state and localStorage sync
   const [bookmarks, setBookmarks] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('vcBookmarks') || '[]');
@@ -27,29 +25,12 @@ export default function Dashboard() {
   });
   const [compareIds, setCompareIds] = useState([]);
   const [showCompare, setShowCompare] = useState(false);
+  const [expanded, setExpanded] = useState(null);
 
-  useEffect(() => {
-    fetch('http://localhost:8000/docs/')
-      .then(r => r.json())
-      .then(data => {
-        setStartups(
-          (data.startups || []).map(doc => ({
-            ...doc,
-            analysis: typeof doc.analysis_result === "string"
-              ? JSON.parse(doc.analysis_result)
-              : doc.analysis_result,
-            id: doc.id,
-          }))
-        );
-      });
-  }, []);
-
-  // Sync bookmarks to localStorage when changed
   useEffect(() => {
     localStorage.setItem('vcBookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  // Filter by either search or bookmarks checkbox
   const filtered = query === '__BOOKMARKS__'
     ? startups.filter(s => bookmarks.includes(s.id))
     : startups.filter(s =>
@@ -57,12 +38,6 @@ export default function Dashboard() {
           .toLowerCase().includes(query.toLowerCase())
       );
 
-  function showModal(analysis) {
-    setSelected(analysis);
-  }
-  function closeModal() {
-    setSelected(null);
-  }
   function handleCheckbox(id) {
     setCompareIds((ids) =>
       ids.includes(id)
@@ -71,220 +46,357 @@ export default function Dashboard() {
     );
   }
 
-  return (
-    <div style={{ padding: 24, fontFamily: 'Roboto, Arial, sans-serif', background: '#f6f7fb', minHeight: '100vh' }}>
-      <h2 style={{ textAlign: 'center', fontWeight: 700 }}>VCMinds Analytics Dashboard</h2>
+  function toggleBookmark(id) {
+    const isBookmarked = bookmarks.includes(id);
+    const newBookmarks = isBookmarked
+      ? bookmarks.filter(bookmarkId => bookmarkId !== id)
+      : [...bookmarks, id];
+    setBookmarks(newBookmarks);
+  }
 
+  return (
+    <div style={{ 
+      padding: "32px", 
+      fontFamily: professionalFont, 
+      background: '#fff',
+      minHeight: '600px'
+    }}>
+      {/* Analytics Overview */}
       <div style={{
-        display: "flex", gap: 32, marginBottom: 32,
-        justifyContent: "center"
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 40,
+        marginBottom: 40,
+        maxWidth: 1000,
+        margin: "0 auto 40px auto"
       }}>
-        <div>
-          <h3>Score Distribution</h3>
+        <div style={{
+          background: "#f8fafc",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          padding: 24
+        }}>
+          <h3 style={{ 
+            margin: "0 0 16px 0", 
+            fontSize: 16, 
+            fontWeight: 600, 
+            color: "#111827" 
+          }}>
+            Score Distribution
+          </h3>
           <ScoreChart startups={filtered} />
         </div>
-        <div>
-          <h3>Risk Breakdown</h3>
+        <div style={{
+          background: "#f8fafc",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          padding: 24
+        }}>
+          <h3 style={{ 
+            margin: "0 0 16px 0", 
+            fontSize: 16, 
+            fontWeight: 600, 
+            color: "#111827" 
+          }}>
+            Risk Analysis
+          </h3>
           <RiskPieChart startups={filtered} />
         </div>
       </div>
 
-      {/* Bookmarks-only filter */}
-      <div style={{ textAlign: 'center', marginBottom: 12 }}>
-        <label style={{ fontWeight: 500, marginRight: 12 }}>
+      {/* Controls */}
+      <div style={{ 
+        maxWidth: 1200, 
+        margin: "0 auto 24px auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        alignItems: "center"
+      }}>
+        {/* Bookmarks Filter */}
+        <div>
+          <label style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: 8, 
+            fontSize: 14, 
+            color: "#374151",
+            cursor: "pointer"
+          }}>
+            <input
+              type="checkbox"
+              checked={!!query && query === '__BOOKMARKS__'}
+              onChange={e => setQuery(e.target.checked ? '__BOOKMARKS__' : '')}
+              style={{ margin: 0 }}
+            />
+            Show bookmarked companies only
+          </label>
+        </div>
+
+        {/* Search */}
+        <div style={{ position: "relative", width: "100%", maxWidth: 400 }}>
           <input
-            type="checkbox"
-            checked={!!query && query === '__BOOKMARKS__'}
-            onChange={e =>
-              setQuery(e.target.checked ? '__BOOKMARKS__' : '')
-            }
-            style={{ marginRight: 7 }}
+            type="text"
+            value={query === '__BOOKMARKS__' ? '' : query}
+            disabled={query === '__BOOKMARKS__'}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search companies..."
+            style={{
+              width: "100%",
+              padding: '12px 16px',
+              fontSize: 15,
+              borderRadius: 6,
+              border: '1px solid #d1d5db',
+              background: '#fff',
+              fontFamily: professionalFont,
+              outline: "none"
+            }}
+            onFocus={e => e.target.style.borderColor = "#3b82f6"}
+            onBlur={e => e.target.style.borderColor = "#d1d5db"}
           />
-          Show only bookmarked companies
-        </label>
-      </div>
+        </div>
 
-      {/* Search & filter input */}
-      <div style={{ textAlign: "center", marginBottom: 18 }}>
-        <input
-          type="text"
-          value={query === '__BOOKMARKS__' ? '' : query}
-          disabled={query === '__BOOKMARKS__'}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search by company..."
-          style={{
-            padding: '8px 12px', fontSize: 16,
-            borderRadius: 8, border: '1px solid #bbb', width: 280
-          }}
-        />
-      </div>
-
-      {compareIds.length >= 2 && (
-        <div style={{ textAlign: "center", margin: "10px 0" }}>
+        {/* Compare Button */}
+        {compareIds.length >= 2 && (
           <button
             onClick={() => setShowCompare(true)}
             style={{
-              background: '#ffb300', color: '#222', fontWeight: 700,
-              border: 'none', borderRadius: 8, padding: '9px 20px',
-              margin: '15px 0', cursor: 'pointer', fontSize: 18
-            }}>
-            Compare {compareIds.length} Startups
+              background: '#3b82f6',
+              color: '#fff',
+              fontWeight: 600,
+              border: 'none',
+              borderRadius: 6,
+              padding: '10px 20px',
+              cursor: 'pointer',
+              fontSize: 14,
+              fontFamily: professionalFont
+            }}
+          >
+            Compare {compareIds.length} Companies
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      {/* Data Table */}
+      <div style={{ 
+        maxWidth: 1200, 
+        margin: "0 auto",
+        overflowX: 'auto' 
+      }}>
         <table style={{
-          width: '100%', background: '#fff', borderRadius: 8, boxShadow: "0 2px 8px #eee", borderCollapse: 'collapse', marginBottom: 24
+          width: '100%',
+          background: '#fff',
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          borderCollapse: 'separate',
+          borderSpacing: 0,
+          overflow: "hidden"
         }}>
-          <thead style={{ background: '#efefef' }}>
-            <tr>
-              <th>Select</th>
-              <th>★</th>
-              <th>Company</th>
-              <th>Founder(s)</th>
-              <th>Score</th>
-              <th>Market Size</th>
-              <th>Traction</th>
-              <th>Risks</th>
-              <th>Details</th>
+          <thead>
+            <tr style={{ background: '#f8fafc' }}>
+              <th style={headerStyle}>Select</th>
+              <th style={headerStyle}>Bookmark</th>
+              <th style={headerStyle}>Company</th>
+              <th style={headerStyle}>Founder(s)</th>
+              <th style={headerStyle}>Score</th>
+              <th style={headerStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((s, idx) => (
-              <tr key={idx} style={{
-                borderBottom: '1px solid #eee',
-                background: idx % 2 === 0 ? '#fcfcfc' : '#f6f7fb'
-              }}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={compareIds.includes(s.id)}
-                    onChange={() => handleCheckbox(s.id)}
-                    disabled={compareIds.length >= 4 && !compareIds.includes(s.id)}
-                  />
-                </td>
-                <td>
-                  <button
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 22,
-                      color: bookmarks.includes(s.id) ? '#fcbc0f' : '#bbb'
-                    }}
-                    onClick={() => {
-                      const isBookmarked = bookmarks.includes(s.id);
-                      const newBookmarks = isBookmarked
-                        ? bookmarks.filter(id => id !== s.id)
-                        : [...bookmarks, s.id];
-                      setBookmarks(newBookmarks);
-                    }}
-                    aria-label="Bookmark"
-                    title={bookmarks.includes(s.id) ? "Remove bookmark" : "Save bookmark"}
-                  >
-                    {bookmarks.includes(s.id) ? '★' : '☆'}
-                  </button>
-                </td>
-                <td>{safeDisplay(s.analysis?.["Company Name"])}</td>
-                <td>{safeDisplay(s.analysis?.["Founder(s)"])}</td>
-                <td style={{
-                  fontWeight: 700,
-                  color:
-                    Number(safeDisplay(s.analysis?.["Overall Score"])) >= 7 ? "#34c759"
-                      : Number(safeDisplay(s.analysis?.["Overall Score"])) >= 4 ? "#ffa500"
-                        : "#f44336"
-                }}>{safeDisplay(s.analysis?.["Overall Score"])}</td>
-                <td>{safeDisplay(s.analysis?.["Market Size"])}</td>
-                <td>{safeDisplay(s.analysis?.["Traction"])}</td>
-                <td>{safeDisplay(s.analysis?.["Key Risks/Red Flags"])}</td>
-                <td>
-                  <button
-                    onClick={() => showModal(s.analysis)}
-                    style={{
-                      background: "#397cf6", color: "#fff",
-                      borderRadius: 5, border: "none", padding: "7px 13px",
-                      fontWeight: 700, cursor: "pointer"
-                    }}>
-                    View
-                  </button>
-                </td>
-              </tr>
+              <React.Fragment key={s.id}>
+                <tr style={{
+                  borderBottom: '1px solid #f3f4f6',
+                  background: idx % 2 === 0 ? '#fff' : '#f9fafb'
+                }}>
+                  <td style={cellStyle}>
+                    <input
+                      type="checkbox"
+                      checked={compareIds.includes(s.id)}
+                      onChange={() => handleCheckbox(s.id)}
+                      disabled={compareIds.length >= 4 && !compareIds.includes(s.id)}
+                    />
+                  </td>
+                  <td style={cellStyle}>
+                    <button
+                      onClick={() => toggleBookmark(s.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 18,
+                        color: bookmarks.includes(s.id) ? '#f59e0b' : '#d1d5db',
+                        padding: 4
+                      }}
+                      title={bookmarks.includes(s.id) ? "Remove bookmark" : "Add bookmark"}
+                    >
+                      ★
+                    </button>
+                  </td>
+                  <td style={{...cellStyle, fontWeight: 600, color: "#111827"}}>
+                    {safeDisplay(s.analysis?.["Company Name"])}
+                  </td>
+                  <td style={{...cellStyle, color: "#6b7280"}}>
+                    {safeDisplay(s.analysis?.["Founder(s)"])}
+                  </td>
+                  <td style={{
+                    ...cellStyle,
+                    fontWeight: 700,
+                    color: getScoreColor(s.analysis?.["Overall Score"])
+                  }}>
+                    {safeDisplay(s.analysis?.["Overall Score"])}
+                  </td>
+                  <td style={cellStyle}>
+                    <button
+                      onClick={() => setExpanded(expanded === s.id ? null : s.id)}
+                      style={{
+                        background: "none",
+                        border: "1px solid #d1d5db",
+                        color: "#374151",
+                        fontWeight: 500,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        padding: "6px 12px",
+                        borderRadius: 4,
+                        fontFamily: professionalFont
+                      }}
+                    >
+                      {expanded === s.id ? "Hide Details" : "View Details"}
+                    </button>
+                  </td>
+                </tr>
+                {expanded === s.id && (
+                  <tr>
+                    <td colSpan={6} style={{ padding: 0, border: "none" }}>
+                      <div style={{
+                        background: "#f8fafc",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 6,
+                        margin: "8px 16px",
+                        padding: "24px"
+                      }}>
+                        <div style={{ 
+                          display: "grid", 
+                          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
+                          gap: 24 
+                        }}>
+                          <DetailSection 
+                            title="Market Size" 
+                            value={safeDisplay(s.analysis?.["Market Size"])} 
+                          />
+                          <DetailSection 
+                            title="Traction" 
+                            value={safeDisplay(s.analysis?.["Traction"])} 
+                          />
+                          <DetailSection 
+                            title="Key Risks" 
+                            value={safeDisplay(s.analysis?.["Key Risks/Red Flags"])} 
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Modal for details */}
-      {selected && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.23)', zIndex: 10000
-        }}>
-          <div style={{
-            background: "#fff", border: "2px solid #222",
-            maxWidth: 600, margin: "60px auto", padding: 24,
-            borderRadius: 16, boxShadow: "0 8px 32px #0002", position: "relative"
-          }}>
-            <button
-              onClick={closeModal}
-              style={{
-                position: "absolute", top: 20, right: 20,
-                background: "#fa4a4a", color: "#fff", border: "none", borderRadius: 6,
-                fontWeight: 700, padding: "6px 14px", fontSize: 16, cursor: "pointer"
-              }}>
-              Close
-            </button>
-            <h3 style={{ marginBottom: 10 }}>{safeDisplay(selected?.["Company Name"])}</h3>
-            <pre style={{
-              whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-              fontSize: 14, background: "#f7f7f7",
-              borderRadius: 8, padding: 10, marginTop: 10,
-              maxHeight: 390, overflow: "auto"
-            }}>
-              {JSON.stringify(selected, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
-
       {/* Comparison Modal */}
       {showCompare && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999,
-          background: 'rgba(0,0,0,0.35)'
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 9999,
+          background: 'rgba(0,0,0,0.5)',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
         }}>
           <div style={{
-            background: '#fff', maxWidth: '95vw', minWidth: 560,
-            margin: '55px auto', borderRadius: 16,
-            padding: 28, position: 'relative'
+            background: '#fff',
+            maxWidth: '90vw',
+            maxHeight: '80vh',
+            borderRadius: 8,
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column"
           }}>
-            <button style={{
-              position: 'absolute', right: 18, top: 18, background: '#111', color: '#fff',
-              border: 'none', borderRadius: 5, fontWeight: 900, cursor: 'pointer', padding: '7px 14px'
-            }} onClick={() => { setShowCompare(false); setCompareIds([]); }}>Close</button>
-            <h2 style={{ textAlign: 'center', marginBottom: 20 }}>🚀 Startup Comparison</h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{
+              padding: "20px 24px",
+              borderBottom: "1px solid #e5e7eb",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: 18, 
+                fontWeight: 600, 
+                color: "#111827" 
+              }}>
+                Company Comparison
+              </h2>
+              <button 
+                onClick={() => { setShowCompare(false); setCompareIds([]); }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 20,
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: 4
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: "24px", overflow: "auto" }}>
+              <table style={{ 
+                width: '100%', 
+                borderCollapse: 'collapse',
+                fontSize: 14
+              }}>
                 <thead>
                   <tr>
-                    <th>Field</th>
+                    <th style={comparisonHeaderStyle}>Metric</th>
                     {compareIds.map(id => {
                       const company = startups.find(s => s.id === id);
                       return (
-                        <th key={id}>{safeDisplay(company?.analysis["Company Name"])}</th>
+                        <th key={id} style={comparisonHeaderStyle}>
+                          {safeDisplay(company?.analysis["Company Name"])}
+                        </th>
                       );
                     })}
                   </tr>
                 </thead>
                 <tbody>
-                  {["Founder(s)", "Overall Score", "Market Size", "Traction", "Business Model", "Funding Ask", "Key Risks/Red Flags", "1-Sentence Investment Summary"].map(field => (
+                  {[
+                    "Founder(s)", 
+                    "Overall Score", 
+                    "Market Size", 
+                    "Traction", 
+                    "Business Model", 
+                    "Funding Ask", 
+                    "Key Risks/Red Flags"
+                  ].map(field => (
                     <tr key={field}>
-                      <td style={{ fontWeight: 700, padding: '7px 10px', background: '#fafafa' }}>{field}</td>
+                      <td style={comparisonCellStyle}>
+                        <strong>{field}</strong>
+                      </td>
                       {compareIds.map(id => {
                         const company = startups.find(s => s.id === id);
                         const value = company?.analysis[field] ?? "Not provided";
-                        return <td key={id} style={{ padding: '7px 10px' }}>{safeDisplay(value)}</td>
+                        return (
+                          <td key={id} style={comparisonCellStyle}>
+                            {safeDisplay(value)}
+                          </td>
+                        );
                       })}
                     </tr>
                   ))}
@@ -297,3 +409,71 @@ export default function Dashboard() {
     </div>
   );
 }
+
+function DetailSection({ title, value }) {
+  return (
+    <div>
+      <h4 style={{
+        margin: "0 0 8px 0",
+        fontSize: 14,
+        fontWeight: 600,
+        color: "#374151"
+      }}>
+        {title}
+      </h4>
+      <p style={{
+        margin: 0,
+        fontSize: 14,
+        color: "#6b7280",
+        lineHeight: 1.5
+      }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function getScoreColor(score) {
+  const numScore = Number(score);
+  if (numScore >= 7) return "#059669";
+  if (numScore >= 4) return "#d97706";
+  return "#dc2626";
+}
+
+const headerStyle = {
+  textAlign: "left",
+  padding: '16px',
+  fontWeight: 600,
+  fontSize: 14,
+  color: "#374151",
+  background: "#f8fafc",
+  borderBottom: "1px solid #e5e7eb"
+};
+
+const cellStyle = {
+  padding: '16px',
+  fontSize: 14,
+  color: "#111827",
+  verticalAlign: "middle",
+  borderBottom: "1px solid #f3f4f6"
+};
+
+const comparisonHeaderStyle = {
+  textAlign: "left",
+  padding: '12px 16px',
+  fontWeight: 600,
+  fontSize: 13,
+  color: "#374151",
+  background: "#f8fafc",
+  borderBottom: "1px solid #e5e7eb"
+};
+
+const comparisonCellStyle = {
+  padding: '12px 16px',
+  fontSize: 13,
+  color: "#111827",
+  verticalAlign: "top",
+  borderBottom: "1px solid #f3f4f6",
+  maxWidth: "200px",
+  wordWrap: "break-word"
+};
