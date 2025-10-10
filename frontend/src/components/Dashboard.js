@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ScoreChart, RiskPieChart } from './Charts';
 
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+const PRESETS_KEY = 'vcminds_filter_presets';
 
 function safeDisplay(value) {
   if (typeof value === "string") return value;
@@ -21,6 +22,16 @@ export default function Dashboard({ startups = [] }) {
   const [riskKeyword, setRiskKeyword] = useState("");
   const [marketSize, setMarketSize] = useState("all");
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
+
+  const [presets, setPresets] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PRESETS_KEY)) || [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedPreset, setSelectedPreset] = useState("");
+
   const [bookmarks, setBookmarks] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('vcBookmarks') || '[]');
@@ -36,32 +47,21 @@ export default function Dashboard({ startups = [] }) {
     localStorage.setItem('vcBookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  // Advanced filtering logic
+  // Filtering
   const filtered = startups.filter(s => {
     const analysis = s.analysis || {};
     const score = Number(analysis['Overall Score']) || 0;
-    
-    // Score range filter
     if (score < minScore || score > maxScore) return false;
-    
-    // Company name search
     if (query && !safeDisplay(analysis['Company Name']).toLowerCase().includes(query.toLowerCase())) return false;
-    
-    // Bookmarks filter
     if (bookmarkedOnly && !bookmarks.includes(s.id)) return false;
-    
-    // Risk keyword filter
     const riskText = safeDisplay(analysis['Key Risks/Red Flags']).toLowerCase();
     if (riskKeyword && !riskText.includes(riskKeyword.toLowerCase())) return false;
-    
-    // Market size filter
     const marketText = safeDisplay(analysis['Market Size']).toLowerCase();
     if (marketSize !== 'all') {
       if (marketSize === 'small' && !marketText.includes('million')) return false;
       if (marketSize === 'medium' && !marketText.includes('billion')) return false;
       if (marketSize === 'large' && !marketText.includes('trillion')) return false;
     }
-    
     return true;
   });
 
@@ -75,10 +75,48 @@ export default function Dashboard({ startups = [] }) {
 
   function toggleBookmark(id) {
     const isBookmarked = bookmarks.includes(id);
-    const newBookmarks = isBookmarked
+    setBookmarks(isBookmarked
       ? bookmarks.filter(bookmarkId => bookmarkId !== id)
-      : [...bookmarks, id];
-    setBookmarks(newBookmarks);
+      : [...bookmarks, id]);
+  }
+
+  // === Preset Management ===
+
+  function savePreset() {
+    const name = prompt("Name this filter preset:");
+    if (!name) return;
+    const newPreset = {
+      name,
+      query,
+      minScore,
+      maxScore,
+      riskKeyword,
+      marketSize,
+      bookmarkedOnly
+    };
+    const updated = [...presets.filter(p => p.name !== name), newPreset];
+    setPresets(updated);
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(updated));
+    setSelectedPreset(name);
+  }
+
+  function loadPreset(name) {
+    const preset = presets.find(p => p.name === name);
+    if (!preset) return;
+    setQuery(preset.query);
+    setMinScore(preset.minScore);
+    setMaxScore(preset.maxScore);
+    setRiskKeyword(preset.riskKeyword);
+    setMarketSize(preset.marketSize);
+    setBookmarkedOnly(preset.bookmarkedOnly);
+    setSelectedPreset(name);
+  }
+
+  function deletePreset(name) {
+    const updated = presets.filter(p => p.name !== name);
+    setPresets(updated);
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(updated));
+    setSelectedPreset("");
   }
 
   return (
@@ -88,6 +126,33 @@ export default function Dashboard({ startups = [] }) {
       background: '#fff',
       minHeight: '600px'
     }}>
+      {/* Preset Save/Load UI */}
+      <div style={{
+        maxWidth: 1200,
+        margin: "0 auto 18px auto",
+        display: "flex",
+        alignItems: "center",
+        gap: 16
+      }}>
+        <select
+          value={selectedPreset}
+          onChange={e => loadPreset(e.target.value)}
+          style={{
+            ...filterInputStyle, width: 220, minWidth: 80
+          }}
+        >
+          <option value="">— Load Saved Preset —</option>
+          {presets.map(preset =>
+            <option key={preset.name} value={preset.name}>{preset.name}</option>
+          )}
+        </select>
+        <button onClick={savePreset} style={{...presetBtn, background: "#3b82f6", color:"#fff"}}>Save Filter</button>
+        {selectedPreset &&
+          <button onClick={() => deletePreset(selectedPreset)} style={{...presetBtn, background: "#f3f4f6", color:"#dc2626"}}>
+            Delete Preset
+          </button>
+        }
+      </div>
       {/* Advanced Filters */}
       <div style={{
         display: "grid",
@@ -110,10 +175,9 @@ export default function Dashboard({ startups = [] }) {
             style={filterInputStyle}
           />
         </div>
-        
         <div>
           <label style={filterLabelStyle}>Score Range</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8 }}>
             <input
               type="number"
               min="1"
@@ -133,7 +197,6 @@ export default function Dashboard({ startups = [] }) {
             />
           </div>
         </div>
-
         <div>
           <label style={filterLabelStyle}>Risk Keyword</label>
           <input
@@ -144,7 +207,6 @@ export default function Dashboard({ startups = [] }) {
             style={filterInputStyle}
           />
         </div>
-
         <div>
           <label style={filterLabelStyle}>Market Size</label>
           <select
@@ -158,13 +220,12 @@ export default function Dashboard({ startups = [] }) {
             <option value="large">Large (&gt;$10B)</option>
           </select>
         </div>
-
         <div>
-          <label style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: 8, 
-            fontSize: 14, 
+          <label style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 14,
             color: "#374151",
             cursor: "pointer",
             marginTop: 20
@@ -245,10 +306,10 @@ export default function Dashboard({ startups = [] }) {
       )}
 
       {/* Data Table */}
-      <div style={{ 
-        maxWidth: 1200, 
+      <div style={{
+        maxWidth: 1200,
         margin: "0 auto",
-        overflowX: 'auto' 
+        overflowX: 'auto'
       }}>
         <table style={{
           width: '100%',
@@ -300,10 +361,10 @@ export default function Dashboard({ startups = [] }) {
                       ★
                     </button>
                   </td>
-                  <td style={{...cellStyle, fontWeight: 600, color: "#111827"}}>
+                  <td style={{ ...cellStyle, fontWeight: 600, color: "#111827" }}>
                     {safeDisplay(s.analysis?.["Company Name"])}
                   </td>
-                  <td style={{...cellStyle, color: "#6b7280"}}>
+                  <td style={{ ...cellStyle, color: "#6b7280" }}>
                     {safeDisplay(s.analysis?.["Founder(s)"])}
                   </td>
                   <td style={{
@@ -342,22 +403,22 @@ export default function Dashboard({ startups = [] }) {
                         margin: "8px 16px",
                         padding: "24px"
                       }}>
-                        <div style={{ 
-                          display: "grid", 
-                          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
-                          gap: 24 
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                          gap: 24
                         }}>
-                          <DetailSection 
-                            title="Market Size" 
-                            value={safeDisplay(s.analysis?.["Market Size"])} 
+                          <DetailSection
+                            title="Market Size"
+                            value={safeDisplay(s.analysis?.["Market Size"])}
                           />
-                          <DetailSection 
-                            title="Traction" 
-                            value={safeDisplay(s.analysis?.["Traction"])} 
+                          <DetailSection
+                            title="Traction"
+                            value={safeDisplay(s.analysis?.["Traction"])}
                           />
-                          <DetailSection 
-                            title="Key Risks" 
-                            value={safeDisplay(s.analysis?.["Key Risks/Red Flags"])} 
+                          <DetailSection
+                            title="Key Risks"
+                            value={safeDisplay(s.analysis?.["Key Risks/Red Flags"])}
                           />
                         </div>
                       </div>
@@ -401,15 +462,15 @@ export default function Dashboard({ startups = [] }) {
               justifyContent: "space-between",
               alignItems: "center"
             }}>
-              <h2 style={{ 
-                margin: 0, 
-                fontSize: 18, 
-                fontWeight: 600, 
-                color: "#111827" 
+              <h2 style={{
+                margin: 0,
+                fontSize: 18,
+                fontWeight: 600,
+                color: "#111827"
               }}>
                 Company Comparison
               </h2>
-              <button 
+              <button
                 onClick={() => { setShowCompare(false); setCompareIds([]); }}
                 style={{
                   background: "none",
@@ -424,8 +485,8 @@ export default function Dashboard({ startups = [] }) {
               </button>
             </div>
             <div style={{ padding: "24px", overflow: "auto" }}>
-              <table style={{ 
-                width: '100%', 
+              <table style={{
+                width: '100%',
                 borderCollapse: 'collapse',
                 fontSize: 14
               }}>
@@ -444,12 +505,12 @@ export default function Dashboard({ startups = [] }) {
                 </thead>
                 <tbody>
                   {[
-                    "Founder(s)", 
-                    "Overall Score", 
-                    "Market Size", 
-                    "Traction", 
-                    "Business Model", 
-                    "Funding Ask", 
+                    "Founder(s)",
+                    "Overall Score",
+                    "Market Size",
+                    "Traction",
+                    "Business Model",
+                    "Funding Ask",
                     "Key Risks/Red Flags"
                   ].map(field => (
                     <tr key={field}>
@@ -524,6 +585,15 @@ const filterInputStyle = {
   borderRadius: 4,
   outline: "none",
   fontFamily: professionalFont
+};
+
+const presetBtn = {
+  border: 'none',
+  borderRadius: 4,
+  fontSize: 13,
+  fontWeight: 500,
+  padding: "8px 18px",
+  cursor: "pointer"
 };
 
 const headerStyle = {
