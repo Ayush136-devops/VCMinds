@@ -1,52 +1,54 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import UploadDeck from './components/UploadDeck';
 import AnalysisView from './components/AnalysisView';
-import './App.css';
+import Dashboard from './components/Dashboard';
 
-function App() {
-  const [currentDocId, setCurrentDocId] = useState(null);
+export default function App() {
+  const [tab, setTab] = useState('analyze');
+  const [uploadedDoc, setUploadedDoc] = useState(null);
 
-  const handleUploadSuccess = (data) => {
-    setCurrentDocId(data.doc_id);
+  const handleUploadSuccess = (docData) => {
+    setUploadedDoc(docData);
   };
 
   return (
-    <div className="App">
-      <header style={styles.header}>
-        <h1>🚀 VCMinds - AI Startup Analyzer</h1>
-        <p>Upload pitch decks and get instant AI-powered investment analysis</p>
-      </header>
+    <div>
+      {/* Tab Switcher */}
+      <div style={{
+        display: 'flex', justifyContent: 'center', gap: 32, margin: '24px 0'
+      }}>
+        <button
+          onClick={() => setTab('analyze')}
+          style={{
+            fontWeight: tab === 'analyze' ? 700 : 400,
+            background: tab === 'analyze' ? '#397cf6' : '#eaeaea',
+            color: tab === 'analyze' ? '#fff' : '#333',
+            padding: '10px 24px', border: 'none', borderRadius: 8, cursor: 'pointer'
+          }}
+        >
+          Analyze Pitch Deck
+        </button>
+        <button
+          onClick={() => setTab('dashboard')}
+          style={{
+            fontWeight: tab === 'dashboard' ? 700 : 400,
+            background: tab === 'dashboard' ? '#397cf6' : '#eaeaea',
+            color: tab === 'dashboard' ? '#fff' : '#333',
+            padding: '10px 24px', border: 'none', borderRadius: 8, cursor: 'pointer'
+          }}
+        >
+          Portfolio Dashboard
+        </button>
+      </div>
 
-      <main style={styles.main}>
-        <UploadDeck onUploadSuccess={handleUploadSuccess} />
-
-        {currentDocId && (
-          <div style={styles.divider}>
-            <hr />
-          </div>
-        )}
-
-        {currentDocId && <AnalysisView docId={currentDocId} />}
-      </main>
+      {/* Content */}
+      {tab === 'analyze' && (
+        <div>
+          <UploadDeck onUploadSuccess={handleUploadSuccess} />
+          {uploadedDoc && <AnalysisView docId={uploadedDoc.doc_id} />}
+        </div>
+      )}
+      {tab === 'dashboard' && <Dashboard />}
     </div>
   );
 }
-
-const styles = {
-  header: {
-    backgroundColor: '#282c34',
-    padding: '30px',
-    color: 'white',
-    textAlign: 'center',
-  },
-  main: {
-    minHeight: '80vh',
-    padding: '20px',
-  },
-  divider: {
-    margin: '40px 0',
-  },
-};
-
-export default App;
-

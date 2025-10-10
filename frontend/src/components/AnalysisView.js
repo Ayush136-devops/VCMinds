@@ -1,6 +1,18 @@
 import { useState } from 'react';
 import axios from 'axios';
 
+// Defensive display util to avoid React errors for objects/arrays
+function safeDisplay(value) {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return value;
+  if (Array.isArray(value)) return value.map(safeDisplay).join(", ");
+  if (typeof value === "object" && value !== null) {
+    if ("msg" in value) return value.msg;
+    return JSON.stringify(value);
+  }
+  return "Not provided";
+}
+
 const AnalysisView = ({ docId }) => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -22,8 +34,10 @@ const AnalysisView = ({ docId }) => {
   };
 
   const getScoreColor = (score) => {
-    if (score >= 7) return '#4CAF50';
-    if (score >= 4) return '#FF9800';
+    // Use safeDisplay to ensure score is a number
+    const nScore = Number(safeDisplay(score));
+    if (nScore >= 7) return '#4CAF50';
+    if (nScore >= 4) return '#FF9800';
     return '#f44336';
   };
 
@@ -46,68 +60,67 @@ const AnalysisView = ({ docId }) => {
 
       {error && (
         <div style={styles.error}>
-          ❌ {error}
+          ❌ {safeDisplay(error)}
         </div>
       )}
 
       {analysis && (
         <div style={styles.results}>
           <h3 style={styles.sectionTitle}>📊 Analysis Results</h3>
-
           <div style={styles.scoreBox}>
             <h2 style={{ color: getScoreColor(analysis['Overall Score']) }}>
-              Score: {analysis['Overall Score']}/10
+              Score: {safeDisplay(analysis['Overall Score'])}/10
             </h2>
           </div>
 
           <div style={styles.field}>
             <strong>🏢 Company Name:</strong>
-            <p>{analysis['Company Name']}</p>
+            <p>{safeDisplay(analysis['Company Name'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>👥 Founder(s):</strong>
-            <p>{analysis['Founder(s)']}</p>
+            <p>{safeDisplay(analysis['Founder(s)'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>❓ Problem Statement:</strong>
-            <p>{analysis['Problem Statement']}</p>
+            <p>{safeDisplay(analysis['Problem Statement'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>💡 Solution Overview:</strong>
-            <p>{analysis['Solution Overview']}</p>
+            <p>{safeDisplay(analysis['Solution Overview'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>📈 Market Size:</strong>
-            <p>{analysis['Market Size']}</p>
+            <p>{safeDisplay(analysis['Market Size'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>💰 Business Model:</strong>
-            <p>{analysis['Business Model']}</p>
+            <p>{safeDisplay(analysis['Business Model'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>🚀 Traction:</strong>
-            <p>{analysis['Traction']}</p>
+            <p>{safeDisplay(analysis['Traction'])}</p>
           </div>
 
           <div style={styles.field}>
             <strong>💵 Funding Ask:</strong>
-            <p>{analysis['Funding Ask']}</p>
+            <p>{safeDisplay(analysis['Funding Ask'])}</p>
           </div>
 
           <div style={styles.redFlags}>
             <strong>🚩 Key Risks/Red Flags:</strong>
-            <p>{analysis['Key Risks/Red Flags']}</p>
+            <p>{safeDisplay(analysis['Key Risks/Red Flags'])}</p>
           </div>
 
           <div style={styles.summary}>
             <strong>📝 Investment Summary:</strong>
-            <p>{analysis['1-Sentence Investment Summary']}</p>
+            <p>{safeDisplay(analysis['1-Sentence Investment Summary'])}</p>
           </div>
 
           <button onClick={handleAnalyze} style={styles.reanalyzeButton}>

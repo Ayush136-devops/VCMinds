@@ -12,14 +12,11 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-# Load environment variables from .env
 load_dotenv()
-
 print("LOADED GEMINI API KEY:", os.getenv("GEMINI_API_KEY"))
 
 app = FastAPI(title="VCMinds Backend API")
 
-# Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:5173"],
@@ -41,6 +38,7 @@ def get_db():
 async def upload_deck(file: UploadFile = File(...), db: Session = Depends(get_db)):
     filename = file.filename.lower()
     contents = await file.read()
+    all_text = ""
 
     if filename.endswith(".pdf"):
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
@@ -90,10 +88,13 @@ def analyze_document(doc_id: int, db: Session = Depends(get_db)):
 
     pitch_text = doc.text or ""
     
-    # Prompt for Gemini
     prompt = f"""
-You are an expert startup analyst for VC investors. Analyze this pitch deck and extract key information.
-Return ONLY a valid JSON object with these exact fields (use "Not provided" if missing):
+You are a venture capital analyst specializing in startup due diligence. 
+Analyze the following pitch deck carefully and extract key investment information. 
+Focus on clarity, accuracy, and investor-relevant insight. 
+Return ONLY a valid JSON object — no extra text, markdown, or explanations. 
+If any field is missing or unclear, return "Not provided". 
+Keep responses concise, factual, and investment-focused.
 
 {{
   "Company Name": "",
@@ -116,15 +117,11 @@ Pitch deck text:
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         raise HTTPException(status_code=500, detail="Gemini API key missing")
-    
+
     try:
-        # Configure Gemini
         genai.configure(api_key=gemini_api_key)
-        
-        # FIXED: Use an available model from the list
         model = genai.GenerativeModel('models/gemini-2.5-flash')
         
-        # Generate response with proper safety settings format
         safety_settings = {
             HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
             HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -136,14 +133,12 @@ Pitch deck text:
         raw_content = response.text
         print("RAW CONTENT FROM GEMINI:\n", raw_content)
 
-        # Extract JSON from response
         match = re.search(r"\{.*\}", raw_content, re.DOTALL)
         if not match:
             raise HTTPException(status_code=500, detail="No JSON found in model output")
         json_str = match.group(0)
 
         analysis_result = json.loads(json_str)
-
         doc.analysis_result = json.dumps(analysis_result)
         doc.analysis_status = "analyzed"
         db.commit()
@@ -152,7 +147,6 @@ Pitch deck text:
 
     except json.JSONDecodeError as e:
         print(f"JSON DECODE ERROR: {e}")
-        print(f"RAW CONTENT WAS: {raw_content if 'raw_content' in locals() else 'Not received'}")
         doc.analysis_status = "error"
         db.commit()
         raise HTTPException(status_code=500, detail=f"JSON parsing failed: {str(e)}")
@@ -161,3 +155,18 @@ Pitch deck text:
         doc.analysis_status = "error"
         db.commit()
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.get("/docs/")
+def list_all_docs(db: Session = Depends(get_db)):
+    docs = db.query(StartupDocument).filter(StartupDocument.analysis_status == "analyzed").all()
+    return {
+        "startups": [
+            {
+                "id": doc.id,
+                "file_name": doc.file_name,
+                "upload_time": doc.upload_time.isoformat() if doc.upload_time else None,
+                "analysis_result": doc.analysis_result
+            }
+            for doc in docs
+        ]
+    }
