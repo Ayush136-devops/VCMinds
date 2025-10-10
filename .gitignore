@@ -1,14 +1,13 @@
-.venv
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*.egg-info/
+*.egg
 env/
-venv/
+.venv/
 ENV/
-VENV/
+venv/
+.Python
 
 # SQLite DB
 *.db
@@ -19,6 +18,14 @@ VENV/
 # VS Code settings
 .vscode/
 
-# Mac, Windows system files
+# Node, React (frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/frontend/build/
+/frontend/.next/
+
+# Mac, Windows system junk
 .DS_Store
 Thumbs.db

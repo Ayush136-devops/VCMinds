@@ -8,3 +8,4 @@ python-multipart  # Needed for file uploads in FastAPI
 python-pptx==0.6.23
 sqlalchemy==2.0.23
 python-dotenv==1.0.1
+google-generativeai==0.3.2

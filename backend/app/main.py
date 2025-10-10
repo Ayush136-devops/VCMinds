@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.db import SessionLocal, init_db, StartupDocument
 import pdfplumber
@@ -6,15 +7,27 @@ from pptx import Presentation
 import io
 import os
 import json
+import re
 from dotenv import load_dotenv
-from groq import Groq
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 # Load environment variables from .env
 load_dotenv()
 
-print("LOADED API KEY:", os.getenv("GROQ_API_KEY"))
+print("LOADED GEMINI API KEY:", os.getenv("GEMINI_API_KEY"))
 
 app = FastAPI(title="VCMinds Backend API")
+
+# Enable CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 init_db()
 
 def get_db():
@@ -23,30 +36,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-PROMPT_TEMPLATE = """
-You are an expert startup analyst for VC investors. Extract the following directly from the full text of a pitch deck. 
-If information is missing, write "Not provided". 
-Return your answer as a valid JSON object ONLY.
-
-Fields to extract:
-- Company Name
-- Founder(s)
-- Problem Statement
-- Solution Overview
-- Market Size
-- Business Model
-- Traction
-- Funding Ask
-- Key Risks/Red Flags
-- 1-Sentence Investment Summary
-- Overall Score (1-10, as a number)
-
-Pitch deck text:
-\"\"\"
-{pitch_text}
-\"\"\"
-"""
 
 @app.post("/upload_deck/")
 async def upload_deck(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -100,25 +89,54 @@ def analyze_document(doc_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
 
     pitch_text = doc.text or ""
-    prompt = PROMPT_TEMPLATE.format(pitch_text=pitch_text[:4000])  # limit context to 4000 chars
+    
+    # Prompt for Gemini
+    prompt = f"""
+You are an expert startup analyst for VC investors. Analyze this pitch deck and extract key information.
+Return ONLY a valid JSON object with these exact fields (use "Not provided" if missing):
 
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise HTTPException(status_code=500, detail="Groq API key missing")
-    client = Groq(api_key=groq_api_key)
+{{
+  "Company Name": "",
+  "Founder(s)": "",
+  "Problem Statement": "",
+  "Solution Overview": "",
+  "Market Size": "",
+  "Business Model": "",
+  "Traction": "",
+  "Funding Ask": "",
+  "Key Risks/Red Flags": "",
+  "1-Sentence Investment Summary": "",
+  "Overall Score": 5
+}}
 
+Pitch deck text:
+{pitch_text[:8000]}
+"""
+
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        raise HTTPException(status_code=500, detail="Gemini API key missing")
+    
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # quick/cheap/free, change if needed
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1024,
-            temperature=0.2,
-        )
-        raw_content = response.choices[0].message.content
-        print("RAW CONTENT FROM LLM:\n", raw_content)
-        import re
+        # Configure Gemini
+        genai.configure(api_key=gemini_api_key)
+        
+        # FIXED: Use an available model from the list
+        model = genai.GenerativeModel('models/gemini-2.5-flash')
+        
+        # Generate response with proper safety settings format
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+        
+        response = model.generate_content(prompt, safety_settings=safety_settings)
+        raw_content = response.text
+        print("RAW CONTENT FROM GEMINI:\n", raw_content)
 
-        # Try to extract JSON object from inside triple backticks
+        # Extract JSON from response
         match = re.search(r"\{.*\}", raw_content, re.DOTALL)
         if not match:
             raise HTTPException(status_code=500, detail="No JSON found in model output")
@@ -126,14 +144,20 @@ def analyze_document(doc_id: int, db: Session = Depends(get_db)):
 
         analysis_result = json.loads(json_str)
 
-
         doc.analysis_result = json.dumps(analysis_result)
         doc.analysis_status = "analyzed"
         db.commit()
         db.refresh(doc)
         return {"doc_id": doc.id, "analysis_result": analysis_result}
 
+    except json.JSONDecodeError as e:
+        print(f"JSON DECODE ERROR: {e}")
+        print(f"RAW CONTENT WAS: {raw_content if 'raw_content' in locals() else 'Not received'}")
+        doc.analysis_status = "error"
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"JSON parsing failed: {str(e)}")
     except Exception as e:
+        print(f"ANALYSIS ERROR: {e}")
         doc.analysis_status = "error"
         db.commit()
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
