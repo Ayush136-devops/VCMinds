@@ -1,3 +1,5 @@
+
+
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -39,7 +41,7 @@ async def upload_deck(file: UploadFile = File(...), db: Session = Depends(get_db
     filename = file.filename.lower()
     contents = await file.read()
     all_text = ""
-
+    
     if filename.endswith(".pdf"):
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
             all_text = "".join([page.extract_text() or "" for page in pdf.pages])
@@ -61,6 +63,7 @@ async def upload_deck(file: UploadFile = File(...), db: Session = Depends(get_db
         text=all_text,
         analysis_status="uploaded"
     )
+    
     db.add(doc)
     db.commit()
     db.refresh(doc)
@@ -92,11 +95,13 @@ def analyze_document(doc_id: int, db: Session = Depends(get_db)):
 You are a venture capital analyst specializing in startup due diligence.
 Analyze the following pitch deck carefully and extract key investment information.
 Focus on clarity, accuracy, and investor-relevant insight.
-Return ONLY a valid JSON object — no extra text, markdown, or explanations.
 
+Return ONLY a valid JSON object — no extra text, markdown, or explanations.
 If any field is missing or unclear, return "Not provided".
 
-*For 'Overall Score', give an integer from 1 (poor) to 10 (excellent) reflecting the investment quality of this startup based on the pitch deck. Always fill this with your AI evaluation — do NOT repeat the default.*
+For 'Overall Score', give an integer from 1 (poor) to 10 (excellent) reflecting the investment quality of this startup based on the pitch deck. Always fill this with your AI evaluation — do NOT repeat the default.
+
+*Pay special attention to founder information including their educational background, previous work experience, past startups, and relevant achievements. Extract as much detail as possible about the founding team.*
 
 The response should exactly follow this format:
 
@@ -111,7 +116,32 @@ The response should exactly follow this format:
   "Funding Ask": "",
   "Key Risks/Red Flags": "",
   "1-Sentence Investment Summary": "",
-  "Overall Score": <AI-GENERATED SCORE from 1 to 10>
+  "Overall Score": 0,
+  "Founder Details": [
+    {{
+      "name": "",
+      "title": "",
+      "educational_background": "",
+      "previous_experience": "",
+      "previous_startups": "",
+      "key_achievements": "",
+      "linkedin_mentioned": "",
+      "years_of_experience": ""
+    }}
+  ],
+  "Team Composition": {{
+    "total_team_size": "",
+    "key_roles_covered": "",
+    "missing_expertise": "",
+    "team_strength_assessment": ""
+  }},
+  "Competitive Advantages": "",
+  "Technology Stack": "",
+  "Go-to-Market Strategy": "",
+  "Financial Projections": "",
+  "Investment Timeline": "",
+  "Use of Funds": "",
+  "Exit Strategy": ""
 }}
 
 Pitch deck text:
@@ -132,7 +162,7 @@ Pitch deck text:
             HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
             HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
         }
-        
+
         response = model.generate_content(prompt, safety_settings=safety_settings)
         raw_content = response.text
         print("RAW CONTENT FROM GEMINI:\n", raw_content)
@@ -140,9 +170,10 @@ Pitch deck text:
         match = re.search(r"\{.*\}", raw_content, re.DOTALL)
         if not match:
             raise HTTPException(status_code=500, detail="No JSON found in model output")
+        
         json_str = match.group(0)
-
         analysis_result = json.loads(json_str)
+
         doc.analysis_result = json.dumps(analysis_result)
         doc.analysis_status = "analyzed"
         db.commit()

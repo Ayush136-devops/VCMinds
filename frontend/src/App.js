@@ -3,6 +3,7 @@ import UploadDeck from './components/UploadDeck';
 import AnalysisView from './components/AnalysisView';
 import Dashboard from './components/Dashboard';
 import KanbanBoard from './components/KanbanBoard';
+import FoundersView from './components/founderview';
 
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
@@ -51,28 +52,19 @@ export default function App() {
             src="/vcminds.png" 
             alt="VCMinds" 
             style={{ 
-              width: 64, 
-              height: 64,
+              width: 120, 
+              height: 120,
               marginBottom: 16 
             }} 
           />
-          <h1 style={{
-            fontFamily: professionalFont,
-            fontWeight: 700,
-            fontSize: 28,
-            margin: 0,
-            color: "#111827",
-            letterSpacing: "-0.025em"
-          }}>
-            VCMinds
-          </h1>
+          
           <p style={{
             color: "#6b7280",
             margin: "8px 0 0 0",
             fontSize: 16,
             fontWeight: 500
           }}>
-            AI-Powered Startup Due Diligence & Portfolio Analytics
+            AI-POWERED STARTUP DUE DILIGENCE & PORTFOLIO ANALYTICS
           </p>
         </div>
       </div>
@@ -111,6 +103,12 @@ export default function App() {
             number="4" 
             label="Pipeline" 
             active={tab === 'kanban'} 
+          />
+          <StepConnector />
+          <NavigationStep 
+            number="5" 
+            label="Founders" 
+            active={tab === 'founders'} 
           />
         </div>
       </div>
@@ -205,6 +203,12 @@ export default function App() {
           >
             Pipeline
           </TabButton>
+          <TabButton 
+             active={tab === 'founders'}
+             onClick={() => setTab('founders')}
+          >
+            Founders
+          </TabButton>
         </div>
       </div>
 
@@ -222,13 +226,16 @@ export default function App() {
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
         }}>
           {tab === 'analyze' && (
-            <div style={{ padding: "32px" }}>
-              <UploadDeck onUploadSuccess={handleUploadSuccess} />
-              {uploadedDoc && <AnalysisView docId={uploadedDoc.doc_id} />}
-            </div>
-          )}
-          {tab === 'dashboard' && <Dashboard startups={startups} />}
-          {tab === 'kanban' && <KanbanBoard startups={startups} />}
+  <div style={{ padding: "32px" }}>
+    <UploadDeck onUploadSuccess={handleUploadSuccess} />
+    {uploadedDoc && <AnalysisView docId={uploadedDoc.doc_id} />}
+  </div>
+    )}
+        {tab === 'dashboard' && <Dashboard startups={startups} />}
+        {tab === 'kanban' && <KanbanBoard startups={startups} />}
+
+        {/* ADD THIS NEW CONDITION HERE */}
+        {tab === 'founders' && <FoundersView startups={startups} />} 
         </div>
       </div>
 
