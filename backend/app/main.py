@@ -1,9 +1,8 @@
-
-
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from app.db import SessionLocal, init_db, StartupDocument
+from sqlalchemy import text
+from app.db import SessionLocal, init_db, StartupDocument, Base, engine
 import pdfplumber
 from pptx import Presentation
 import io
@@ -15,7 +14,12 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 load_dotenv()
-print("LOADED GEMINI API KEY:", os.getenv("GEMINI_API_KEY"))
+
+# Verify API key is loaded (but don't print it!)
+if not os.getenv("GEMINI_API_KEY"):
+    print("⚠️  WARNING: GEMINI_API_KEY not found in environment")
+else:
+    print("✅ Gemini API key loaded")
 
 app = FastAPI(title="VCMinds Backend API")
 
@@ -24,16 +28,50 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://localhost:5173",
-        "http://127.0.0.1:3000",      # Add this
-        "http://127.0.0.1:5173"       # Add this
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Initialize database with error handling
+print("=" * 50)
+print("DATABASE INITIALIZATION:")
+try:
+    init_db()
+    print("✅ init_db() completed")
+except Exception as e:
+    print(f"❌ init_db() failed: {e}")
 
-init_db()
+# Debug: Print database connection info
+print("DATABASE CONNECTION INFO:")
+print(f"Using database: {os.getenv('DATABASE_URL', 'sqlite:///./vcminds.db')[:50]}...")
+try:
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT 1"))
+        print("✅ Database connection successful!")
+        
+        # Check if table exists
+        result = conn.execute(text("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'startup_documents'
+        """))
+        table_exists = result.fetchone()
+        
+        if table_exists:
+            print("✅ Table 'startup_documents' exists!")
+        else:
+            print("⚠️  Table 'startup_documents' NOT found - creating manually...")
+            # Force create table
+            Base.metadata.create_all(bind=engine)
+            print("✅ Table created manually!")
+            
+except Exception as e:
+    print(f"❌ Database setup failed: {e}")
+print("=" * 50)
 
 def get_db():
     db = SessionLocal()
@@ -102,7 +140,7 @@ You are a venture capital analyst specializing in startup due diligence.
 Analyze the following pitch deck carefully and extract key investment information.
 Focus on clarity, accuracy, and investor-relevant insight.
 
-Return ONLY a valid JSON object — no extra text, markdown, or explanations.
+Return ONLY a valid JSON object – no extra text, markdown, or explanations.
 
 **CRITICAL INSTRUCTIONS FOR FOUNDER DETAILS:**
 1. Extract ALL mentions of founders, co-founders, team members, and executives
@@ -124,7 +162,7 @@ Then extract:
 - previous_experience: "Part of team with 80+ years collective investment experience, $2B+ assets managed"
 - years_of_experience: "15-20 years (estimated from team collective experience)"
 
-For 'Overall Score', give an integer from 1 (poor) to 10 (excellent) reflecting the investment quality of this startup based on the pitch deck. Always fill this with your AI evaluation.
+**IMPORTANT: For 'Overall Score', give an integer from 1 to 10 (NOT 0-100). Score reflects investment quality.**
 
 The response should exactly follow this format:
 {{
@@ -170,7 +208,6 @@ Pitch deck text:
 {pitch_text[:8000]}
 """
 
-
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         raise HTTPException(status_code=500, detail="Gemini API key missing")
@@ -188,14 +225,26 @@ Pitch deck text:
 
         response = model.generate_content(prompt, safety_settings=safety_settings)
         raw_content = response.text
-        print("RAW CONTENT FROM GEMINI:\n", raw_content)
+        print("RAW CONTENT FROM GEMINI:\n", raw_content[:500])  # Only print first 500 chars
 
+        # Remove code fences
+        raw_content = re.sub(r"```json", "", raw_content)
+        raw_content = re.sub(r"```", "", raw_content)
+        raw_content = raw_content.strip()
+
+        # Extract JSON
         match = re.search(r"\{.*\}", raw_content, re.DOTALL)
         if not match:
             raise HTTPException(status_code=500, detail="No JSON found in model output")
         
         json_str = match.group(0)
         analysis_result = json.loads(json_str)
+
+        # Normalize score to 0-10 scale if it's 0-100
+        if "Overall Score" in analysis_result:
+            score = analysis_result["Overall Score"]
+            if score > 10:
+                analysis_result["Overall Score"] = round(score / 10, 1)
 
         doc.analysis_result = json.dumps(analysis_result)
         doc.analysis_status = "analyzed"
@@ -228,3 +277,38 @@ def list_all_docs(db: Session = Depends(get_db)):
             for doc in docs
         ]
     }
+
+@app.get("/debug/db-status")
+def check_database_status():
+    """Temporary endpoint to verify database connection"""
+    try:
+        with engine.connect() as conn:
+            # Check if table exists
+            result = conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """))
+            tables = [row[0] for row in result]
+            
+            return {
+                "status": "connected",
+                "database_url": os.getenv("DATABASE_URL", "sqlite:///./vcminds.db")[:50] + "...",
+                "tables": tables,
+                "startup_documents_exists": "startup_documents" in tables
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "database_url": os.getenv("DATABASE_URL", "sqlite:///./vcminds.db")[:50] + "..."
+        }
+
+@app.post("/debug/force-create-table")
+def force_create_table():
+    """Force create the startup_documents table"""
+    try:
+        Base.metadata.create_all(bind=engine)
+        return {"status": "success", "message": "Table creation attempted"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
