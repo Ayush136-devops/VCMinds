@@ -23,7 +23,7 @@ const UploadDeck = ({ onUploadSuccess }) => {
     formData.append('file', file);
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/upload_deck/', formData, {
+      const res = await axios.post('http://localhost:8000/upload_deck/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
