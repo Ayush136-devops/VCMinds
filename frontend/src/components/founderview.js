@@ -1,16 +1,33 @@
 import React from "react";
 
 function FoundersView({ startups }) {
-  // Flatten founders from each startup, tagging with company & score
   const founders = [];
+  
   startups.forEach(s => {
     let founderArray = [];
     try {
-      // Try parse JSON if it's a string
       let analysis = typeof s.analysis === "string" ? JSON.parse(s.analysis) : s.analysis;
+      
+      // Get founder details array
       founderArray = Array.isArray(analysis?.["Founder Details"])
         ? analysis["Founder Details"]
         : [];
+      
+      // If no Founder Details array, try to parse from "Founder(s)" string
+      if (founderArray.length === 0 && analysis["Founder(s)"]) {
+        const founderNames = analysis["Founder(s)"].split(',').map(n => n.trim());
+        founderArray = founderNames.map(name => ({
+          "Founder Name": name,
+          "Title": "",
+          "Educational Background": "Not mentioned in pitch deck",
+          "Previous Experience": "Not mentioned in pitch deck",
+          "Previous Startups": "Not mentioned in pitch deck",
+          "Key Achievements": "Not mentioned in pitch deck",
+          "LinkedIn Mentioned": "",
+          "Years of Experience": "Not mentioned in pitch deck"
+        }));
+      }
+      
       founderArray.forEach(f =>
         founders.push({
           ...f,
@@ -18,8 +35,8 @@ function FoundersView({ startups }) {
           companyScore: analysis["Overall Score"],
         })
       );
-    } catch {
-      // fallback: skip badly formatted results
+    } catch (e) {
+      console.error("Error parsing founder data:", e);
     }
   });
 
@@ -35,7 +52,7 @@ function FoundersView({ startups }) {
       )}
       {founders.map((f, idx) => (
         <div
-          key={f.company + f.name + idx}
+          key={f.company + (f["Founder Name"] || f.name) + idx}
           style={{
             background: "#fff",
             borderRadius: 8,
@@ -47,9 +64,9 @@ function FoundersView({ startups }) {
           }}
         >
           <div style={{ fontWeight: 700, fontSize: 18 }}>
-            {f.name || "Unnamed founder"}
+            {f["Founder Name"] || f.name || "Unnamed founder"}
             <span style={{ color: "#aaa", fontWeight: 400, fontSize: 13, marginLeft: 10 }}>
-              {f.title || ""}
+              {f["Title"] || f.title || ""}
             </span>
           </div>
           <div style={{ color: "#374151", fontSize: 15, marginBottom: 7 }}>
@@ -60,34 +77,77 @@ function FoundersView({ startups }) {
               </span>
             }
           </div>
-          <div>
-            <span style={{ color: "#64748b", fontWeight: 600 }}>Education:</span>
-            <ul style={{ margin: '3px 0 10px 22px', padding: 0 }}>
-              {(f.educational_background?.split("\n") || [f.educational_background])
-                .filter(v => v && v !== "Not provided")
-                .map((ed, i) => <li key={i} style={{ fontSize: 14 }}>{ed}</li>)}
-            </ul>
-          </div>
-          <div>
-            <span style={{ color: "#64748b", fontWeight: 600 }}>Previous Experience:</span>
-            <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>{f.previous_experience || "Not provided"}</div>
-          </div>
-          <div>
-            <span style={{ color: "#64748b", fontWeight: 600 }}>Previous Startups:</span>
-            <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>{f.previous_startups || "Not provided"}</div>
-          </div>
-          <div>
-            <span style={{ color: "#64748b", fontWeight: 600 }}>Key Achievements:</span>
-            <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>{f.key_achievements || "Not provided"}</div>
-          </div>
-          <div>
-            <span style={{ color: "#64748b", fontWeight: 600 }}>LinkedIn:</span>
-            <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>{f.linkedin_mentioned || "Not provided"}</div>
-          </div>
-          <div>
-            <span style={{ color: "#64748b", fontWeight: 600 }}>Years of Experience:</span>
-            <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>{f.years_of_experience || "Not provided"}</div>
-          </div>
+          
+          {/* Only show fields with actual data */}
+          {f["Educational Background"] && !f["Educational Background"].includes("Not mentioned") && (
+            <div>
+              <span style={{ color: "#64748b", fontWeight: 600 }}>Education:</span>
+              <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>
+                {f["Educational Background"]}
+              </div>
+            </div>
+          )}
+          
+          {f["Previous Experience"] && !f["Previous Experience"].includes("Not mentioned") && (
+            <div>
+              <span style={{ color: "#64748b", fontWeight: 600 }}>Previous Experience:</span>
+              <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>
+                {f["Previous Experience"]}
+              </div>
+            </div>
+          )}
+          
+          {f["Previous Startups"] && !f["Previous Startups"].includes("Not mentioned") && (
+            <div>
+              <span style={{ color: "#64748b", fontWeight: 600 }}>Previous Startups:</span>
+              <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>
+                {f["Previous Startups"]}
+              </div>
+            </div>
+          )}
+          
+          {f["Key Achievements"] && !f["Key Achievements"].includes("Not mentioned") && (
+            <div>
+              <span style={{ color: "#64748b", fontWeight: 600 }}>Key Achievements:</span>
+              <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>
+                {f["Key Achievements"]}
+              </div>
+            </div>
+          )}
+          
+          {f["LinkedIn Mentioned"] && !f["LinkedIn Mentioned"].includes("Not mentioned") && (
+            <div>
+              <span style={{ color: "#64748b", fontWeight: 600 }}>LinkedIn:</span>
+              <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>
+                {f["LinkedIn Mentioned"]}
+              </div>
+            </div>
+          )}
+          
+          {f["Years of Experience"] && !f["Years of Experience"].includes("Not mentioned") && (
+            <div>
+              <span style={{ color: "#64748b", fontWeight: 600 }}>Years of Experience:</span>
+              <div style={{ fontSize: 14, margin: '2px 0 7px 0' }}>
+                {f["Years of Experience"]}
+              </div>
+            </div>
+          )}
+          
+          {/* Show message if no detailed data available */}
+          {!f["Educational Background"]?.length && 
+           !f["Previous Experience"]?.length &&
+           !f["LinkedIn Mentioned"]?.length && (
+            <div style={{
+              marginTop: 12,
+              padding: 12,
+              background: "#fef3c7",
+              borderRadius: 6,
+              fontSize: 13,
+              color: "#92400e"
+            }}>
+              Limited information available in pitch deck. Name extracted from founder list.
+            </div>
+          )}
         </div>
       ))}
     </div>

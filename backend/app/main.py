@@ -103,14 +103,30 @@ Analyze the following pitch deck carefully and extract key investment informatio
 Focus on clarity, accuracy, and investor-relevant insight.
 
 Return ONLY a valid JSON object — no extra text, markdown, or explanations.
-If any field is missing or unclear, return "Not provided".
 
-For 'Overall Score', give an integer from 1 (poor) to 10 (excellent) reflecting the investment quality of this startup based on the pitch deck. Always fill this with your AI evaluation — do NOT repeat the default.
+**CRITICAL INSTRUCTIONS FOR FOUNDER DETAILS:**
+1. Extract ALL mentions of founders, co-founders, team members, and executives
+2. For each founder mentioned by name, create a separate entry in "Founder Details"
+3. If specific details aren't provided, infer reasonable information from context:
+   - Educational background: Look for university names, degrees, certifications
+   - Previous experience: Extract company names, roles, industries mentioned
+   - Years of experience: Calculate from dates or infer from seniority level
+   - Key achievements: Extract ANY accomplishments, awards, or metrics mentioned
+4. If a field truly has zero information in the deck, use "Not mentioned in pitch deck" instead of "Not provided"
+5. Parse collective team statements (e.g., "+80 years experience") and try to distribute across known founders
+6. Look for LinkedIn URLs, email signatures, or social media handles
 
-*Pay special attention to founder information including their educational background, previous work experience, past startups, and relevant achievements. Extract as much detail as possible about the founding team.*
+**EXAMPLE OF GOOD EXTRACTION:**
+If deck says "Anthony Lesoisier, CSO. Team has 80+ years investment experience, managed $2B+ assets"
+Then extract:
+- name: "Anthony Lesoisier"
+- title: "Co-founder & CSO"
+- previous_experience: "Part of team with 80+ years collective investment experience, $2B+ assets managed"
+- years_of_experience: "15-20 years (estimated from team collective experience)"
+
+For 'Overall Score', give an integer from 1 (poor) to 10 (excellent) reflecting the investment quality of this startup based on the pitch deck. Always fill this with your AI evaluation.
 
 The response should exactly follow this format:
-
 {{
   "Company Name": "",
   "Founder(s)": "",
@@ -125,14 +141,14 @@ The response should exactly follow this format:
   "Overall Score": 0,
   "Founder Details": [
     {{
-      "name": "",
-      "title": "",
-      "educational_background": "",
-      "previous_experience": "",
-      "previous_startups": "",
-      "key_achievements": "",
-      "linkedin_mentioned": "",
-      "years_of_experience": ""
+      "Founder Name": "",
+      "Title": "",
+      "Educational Background": "",
+      "Previous Experience": "",
+      "Previous Startups": "",
+      "Key Achievements": "",
+      "LinkedIn Mentioned": "",
+      "Years of Experience": ""
     }}
   ],
   "Team Composition": {{
@@ -153,6 +169,7 @@ The response should exactly follow this format:
 Pitch deck text:
 {pitch_text[:8000]}
 """
+
 
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
