@@ -15,6 +15,27 @@ function safeDisplay(value) {
   return "Not provided";
 }
 
+// Utility to export table as a CSV file
+function downloadCSV(rows, filename = "VCMinds_Deals.csv") {
+  if (!rows.length) return;
+  const keys = Object.keys(rows[0]);
+  const csv =
+    keys.join(",") + "\n" +
+    rows.map(row =>
+      keys.map(
+        k => `"${(row[k] ?? '').toString().replace(/"/g, '""')}"`
+      ).join(",")
+    ).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click();
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url); link.remove()
+  }, 0);
+}
+
 export default function Dashboard({ startups = [] }) {
   const [query, setQuery] = useState("");
   const [minScore, setMinScore] = useState(1);
@@ -65,6 +86,18 @@ export default function Dashboard({ startups = [] }) {
     return true;
   });
 
+  // Prepare table rows for CSV export (add/remove fields as needed)
+  const csvRows = filtered.map(s => ({
+    "Company": safeDisplay(s.analysis?.["Company Name"]),
+    "Founder(s)": safeDisplay(s.analysis?.["Founder(s)"]),
+    "Score": safeDisplay(s.analysis?.["Overall Score"]),
+    "Market Size": safeDisplay(s.analysis?.["Market Size"]),
+    "Traction": safeDisplay(s.analysis?.["Traction"]),
+    "Key Risks/Red Flags": safeDisplay(s.analysis?.["Key Risks/Red Flags"]),
+    "Business Model": safeDisplay(s.analysis?.["Business Model"]),
+    "Funding Ask": safeDisplay(s.analysis?.["Funding Ask"])
+  }));
+
   function handleCheckbox(id) {
     setCompareIds((ids) =>
       ids.includes(id)
@@ -80,8 +113,7 @@ export default function Dashboard({ startups = [] }) {
       : [...bookmarks, id]);
   }
 
-  // === Preset Management ===
-
+  // Preset Management
   function savePreset() {
     const name = prompt("Name this filter preset:");
     if (!name) return;
@@ -238,6 +270,26 @@ export default function Dashboard({ startups = [] }) {
             Bookmarked Only
           </label>
         </div>
+      </div>
+
+      {/* --- CSV Export button --- */}
+      <div style={{ textAlign: "right", maxWidth: 1200, margin: "12px auto" }}>
+        <button
+          onClick={() => downloadCSV(csvRows, "VCMinds_Deals.csv")}
+          style={{
+            background: "#f3f4f6",
+            color: "#374151",
+            fontWeight: 500,
+            border: "1px solid #d1d5db",
+            borderRadius: 5,
+            padding: "7px 18px",
+            cursor: "pointer",
+            fontSize: 14,
+            fontFamily: professionalFont
+          }}
+        >
+          Export to CSV
+        </button>
       </div>
 
       {/* Analytics Overview */}
