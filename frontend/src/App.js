@@ -7,7 +7,7 @@ import FoundersView from './components/founderview';
 
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-const api = import.meta.env.VITE_BACKEND_URL;
+const api = process.env.REACT_APP_BACKEND_URL;
 
 export default function App() {
   const [tab, setTab] = useState('analyze');

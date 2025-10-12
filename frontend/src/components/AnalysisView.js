@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const api = import.meta.env.VITE_BACKEND_URL;
+const api = process.env.REACT_APP_BACKEND_URL;
 
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
