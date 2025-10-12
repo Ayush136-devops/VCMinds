@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios';
 
+const api = import.meta.env.VITE_BACKEND_URL;
+
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 function safeDisplay(value) {
@@ -24,7 +26,7 @@ const AnalysisView = ({ docId }) => {
     setError(null);
 
     try {
-      const res = await axios.post(`http://127.0.0.1:8000/analyze/${docId}`);
+      const res = await axios.post(`${api}/analyze/${docId}`);
       setAnalysis(res.data.analysis_result);
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed');

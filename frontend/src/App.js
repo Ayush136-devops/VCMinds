@@ -7,6 +7,8 @@ import FoundersView from './components/founderview';
 
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+const api = import.meta.env.VITE_BACKEND_URL;
+
 export default function App() {
   const [tab, setTab] = useState('analyze');
   const [uploadedDoc, setUploadedDoc] = useState(null);
@@ -14,7 +16,7 @@ export default function App() {
   const [startups, setStartups] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/docs/')
+    fetch(`${api}/docs/`)
       .then(r => r.json())
       .then(data => {
         setStartups((data.startups || []).map(doc => ({

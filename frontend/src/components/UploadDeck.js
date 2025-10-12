@@ -3,6 +3,8 @@ import axios from 'axios';
 
 const professionalFont = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+const api = import.meta.env.VITE_BACKEND_URL;
+
 const UploadDeck = ({ onUploadSuccess }) => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,7 @@ const UploadDeck = ({ onUploadSuccess }) => {
     formData.append('file', file);
 
     try {
-      const res = await axios.post('http://localhost:8000/upload_deck/', formData, {
+      const res = await axios.post(`${api}/upload_deck/`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
